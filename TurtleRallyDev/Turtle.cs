@@ -14,6 +14,7 @@ namespace TurtleRallyDev
     public class Turtle : Interop.BugTraqProvider.IBugTraqProvider2, Interop.BugTraqProvider.IBugTraqProvider
     {
         private List<TicketItem> selectedTickets = new List<TicketItem>();
+        string issueIds = "";
 
         public bool ValidateParameters(IntPtr hParentWnd, string parameters)
         {
@@ -42,47 +43,33 @@ namespace TurtleRallyDev
                 var restApi = new RallyRestApi("reinhold.degenfellner@microfocus.com", "Reinsch1987", "https://rally1.rallydev.com", "v2.0");
 
                 // Build request
-                var defectRequest = new Request("defect");
-                defectRequest.Fetch = new List<string>() { "Name", "Description", "FormattedID" };
-                defectRequest.Query = new Query("Iteration.StartDate", Query.Operator.LessThanOrEqualTo, DateTime.Today.ToString("yyyy-MM-dd"))
-                  .And(new Query("Iteration.EndDate", Query.Operator.GreaterThanOrEqualTo, DateTime.Today.ToString("yyyy-MM-dd")))
-                  .And(new Query("Release.Name", Query.Operator.Equals, "ST 15.5"));
+                var request = BuildRequest("defect");
 
                 // Make request and process results 
-                var tickets = new List<TicketItem>( );
-                var queryResult = restApi.Query(defectRequest);
+                var queryResult = restApi.Query(request);
                 if (!queryResult.Success) {
                   foreach (var er in queryResult.Errors) {
                     MessageBox.Show("Error: " + er);
                   }
                 }
-                foreach (var qr in queryResult.Results) {
-                  tickets.Add(new TicketItem(qr["FormattedID"], qr["Name"]));
-                }
+                
+                var tickets = createTicketsAndIssueIds(queryResult);
 
-                defectRequest = new Request("HierarchicalRequirement");
-                defectRequest.Fetch = new List<string>() { "Name", "Description", "FormattedID" };
-                defectRequest.Query = new Query("Iteration.StartDate", Query.Operator.LessThanOrEqualTo, DateTime.Today.ToString("yyyy-MM-dd"))
-                  .And(new Query("Iteration.EndDate", Query.Operator.GreaterThanOrEqualTo, DateTime.Today.ToString("yyyy-MM-dd")))
-                  .And(new Query("Release.Name", Query.Operator.Equals, "ST 15.5"));
-
-              // Make request and process results 
-                queryResult = restApi.Query(defectRequest);
+                request = BuildRequest("HierarchicalRequirement");  
+                // Make request and process results 
+                queryResult = restApi.Query(request);
                 if (!queryResult.Success) {
                   foreach (var er in queryResult.Errors) {
                     MessageBox.Show("Error: " + er);
                   }
                 }
-                foreach (var qr in queryResult.Results) {
-                  tickets.Add(new TicketItem(qr["FormattedID"], qr["Name"]));
-                }
 
-                revPropNames = new string[2];
-                revPropValues = new string[2];
-                revPropNames[0] = "bugtraq:issueIDs";
-                revPropNames[1] = "myownproperty";
-                revPropValues[0] = "13, 16, 17";
-                revPropValues[1] = "myownvalue";
+                tickets.AddRange(createTicketsAndIssueIds(queryResult));
+
+                revPropNames = new string[1];
+                revPropValues = new string[1];
+                revPropNames[0] = "Rally:issueIDs";
+                revPropValues[0] = issueIds;
 
                 bugIDOut = bugID + "added";
 
@@ -109,6 +96,29 @@ namespace TurtleRallyDev
                 MessageBox.Show( ex.ToString( ) );
                 throw;
             }
+        }
+
+        private List<TicketItem> createTicketsAndIssueIds(Rally.RestApi.Response.QueryResult queryResult)
+        {
+            var tickets = new List<TicketItem>();
+            foreach (var qr in queryResult.Results) {
+                tickets.Add(new TicketItem(qr["FormattedID"], qr["Name"]));
+                issueIds = issueIds + qr["FormattedID"] + ";";
+            }
+            return tickets;
+        }
+
+        private static Request BuildRequest(string type) {
+          var todayDate = DateTime.Today.ToString("yyyy-MM-dd");
+          var q = new Query("Iteration.StartDate", Query.Operator.LessThanOrEqualTo, todayDate)
+            .And(new Query("Iteration.EndDate", Query.Operator.GreaterThanOrEqualTo, todayDate)
+            .And(new Query("Release.Name", Query.Operator.Equals, "ST 15.5")));
+
+          var fetchValues = new List<string>() { "Name", "Description", "FormattedID" };
+          var defectRequest = new Request(type);
+          defectRequest.Fetch = fetchValues;
+          defectRequest.Query = q;
+          return defectRequest;
         }
 
         public string CheckCommit( IntPtr hParentWnd, string parameters, string commonURL, string commonRoot, string[] pathList, string commitMessage )
