@@ -68,7 +68,7 @@ namespace TurtleRallyDev
 
                 revPropNames = new string[1];
                 revPropValues = new string[1];
-                revPropNames[0] = "Rally:issueIDs";
+                revPropNames[0] = "bugtraq:issueIDs";
                 revPropValues[0] = issueIds;
 
                 bugIDOut = bugID + "added";
@@ -123,7 +123,7 @@ namespace TurtleRallyDev
 
         public string CheckCommit( IntPtr hParentWnd, string parameters, string commonURL, string commonRoot, string[] pathList, string commitMessage )
         {
-            return "the commit log message is not correct.";
+            return "";
         }
 
         public string OnCommitFinished( IntPtr hParentWnd, string commonRoot, string[] pathList, string logMessage, int revision )
